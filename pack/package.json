@@ -1,0 +1,29 @@
+{
+  "name": "mini-program-pack",
+  "version": "1.0.1",
+  "description": "小程序静态资源打包工具",
+  "bin": {
+    "mini-program-pack": "bin/mini-program-pack.js"
+  },
+  "dependencies": {
+    "commander": "^11.1.0"
+  },
+  "main": "lib.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "node test/test.js"
+  },
+  "type": "module",
+  "homepage": "https://github.com/EtherDream/mini-program-pack/pack",
+  "keywords": [
+    "小程序",
+    "小游戏",
+    "资源打包",
+    "UTF8解码",
+    "br压缩",
+    "brotli",
+    "WebAssembly"
+  ],
+  "author": "EtherDream",
+  "license": "MIT"
+}

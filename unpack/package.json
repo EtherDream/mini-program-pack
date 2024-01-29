@@ -1,0 +1,20 @@
+{
+  "name": "mini-program-unpack",
+  "version": "1.0.0",
+  "description": "小程序静态资源解包库",
+  "main": "index.js",
+  "type": "module",
+  "types": "index.d.ts",
+  "homepage": "https://github.com/EtherDream/mini-program-pack/unpack",
+  "keywords": [
+    "小程序",
+    "小游戏",
+    "资源打包",
+    "UTF8解码",
+    "br压缩",
+    "brotli",
+    "WebAssembly"
+  ],
+  "author": "EtherDream",
+  "license": "MIT"
+}

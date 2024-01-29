@@ -1,49 +1,139 @@
-# 小程序静态资源打包和压缩
+# 小程序静态资源打包方案
 
-## 原理
+## 解决问题
 
-小程序支持加载 brotli 压缩后的 WebAssembly 文件，因此开发者可将静态资源打包成一个只有数据段的 WebAssembly 文件，并进行压缩；运行时直接加载 `.wasm.br` 文件，即可读取原始数据。
+小程序/小游戏由于受到包体积限制，因此一些体积较大的本地资源可考虑以压缩的格式进行存储，尤其是压缩率高、解压快的 brotli 格式。
 
-使用该方案，可减少静态资源空间占用，优化包体积。并且解压由系统原生提供，避免了额外的代码，性能也更高。
+微信小程序现已提供原生解压 brotli 压缩文件的能力，但其他小程序目前不支持该 API，因此需要一个兼容方案。
 
-## 打包
+此外，开发者有时希望将多个文件打包成一个资源包，方便使用并能提升压缩率，因此需要记录额外的文件信息。
+
+本工具主要解决上述问题。
+
+## 兼容方案
+
+目前大部分小程序都支持加载 brotli 压缩后的 wasm 文件，因此开发者可将静态资源打包成一个只有数据段的 wasm 文件，并进行压缩；运行时直接加载 `.wasm.br` 文件，即可从导出对象的内存中读取原始数据。
+
+## 文件打包
+
+安装 [mini-program-pack](pack) 工具：
 
 ```bash
-cat 原始文件 | ./minipack > 输出文件
+npm i -g mini-program-pack
 ```
 
-例如：
+演示：
 
 ```bash
-cat test.txt | ./minipack > test.txt.wasm.br
+echo "Hello" > t1.txt
+echo "abc123" > t2.txt
+
+mini-program-pack --binary t1.txt t2.txt -o res.wasm.br
 ```
 
-## 读取
+将 `t1.txt` 和 `t2.txt` 以二进制格式打包压缩，生成 `res.wasm.br`。
 
-例如微信小程序：
+该 wasm 文件不包含任何指令，仅用作数据载体而已。
+
+## 文件读取
+
+小程序项目中安装 [mini-program-unpack](unpack) 库：
+
+```bash
+npm i mini-program-unpack
+```
+
+运行：
 
 ```javascript
-WXWebAssembly.instantiate('test.txt.wasm.br').then(r => {
-  const [[keyAsLen, {buffer}]] = Object.entries(r.instance.exports)
-  const fileBin = new Uint8Array(buffer, 0, keyAsLen)
+import unpack from 'mini-program-unpack'
 
-  console.log(fileBin)    // test.txt 的二进制数据
+unpack('res.wasm.br').then(pkg => {
+  console.log(pkg.files)          // ["t1.txt", "t2.txt"]
+  console.log(pkg.read('t1.txt')) // Uint8Array(6) [72, 101, 108, 108, 111, 10]
+  console.log(pkg.read('t2.txt')) // Uint8Array(7) [97, 98, 99, 49, 50, 51, 10]
 })
 ```
 
-其他小程序使用相应的 WebAssembly 对象，例如 TTWebAssembly、MYWebAssembly。
+解压过程是后台异步执行的，不会阻塞主线程。
 
-> 注意 buffer 长度为 65536 的整数倍，剩余部分用 0 填充。因为 WebAssembly 以页为单位分配内存，每页 64kB。
+在支持原生 brotli 解压的环境中，程序不会调用 wasm 接口，而是直接解压 .wasm.br 文件，然后跳过 wasm 文件头，因此可快 10% 左右。
 
-如需一次打包多个文件，可在本程序基础上进一步封装，例如通过文件头或其他配置，记录每个文件的路径和长度；使用时根据相应的偏移和长度截取即可。
+## 文本优化
 
-当然还可尝试现成的打包方案：例如将多个文件打包成 tar，然后生成 .tar.wasm.br 文件；使用时通过 JS 版的 tar 库从中提取。
+由于小程序不支持 `TextDecoder` 等二进制转文本的 API，因此开发者只能自己实现 UTF-8 解码，这不仅需要额外的代码，而且性能很低。
+
+为此本工具提供了文本模式，可大幅提升文本读取性能。打包时通过 `--text` 指定使用文本模式的文件：
+
+```bash
+echo "Hello" > t1.txt
+echo "abc123" > t2.txt
+echo "你好😁" > t3.txt
+
+mini-program-pack --binary t1.txt --text t2.txt t3.txt -o res.wasm.br
+```
+
+读取文本文件，返回的是 `string` 类型：
+
+```javascript
+unpack('res.wasm.br').then(pkg => {
+  console.log(pkg.files)          // ["t1.txt", "t2.txt", "t3.txt"]
+  console.log(pkg.read('t1.txt')) // Uint8Array(6) [72, 101, 108, 108, 111, 10]
+  console.log(pkg.read('t2.txt')) // "abc123\n"
+  console.log(pkg.read('t3.txt')) // "你好😁\n"
+})
+```
+
+对于单字节文本，例如 `ASCII`、`ISO-8859-1` 格式，使用文本模式不会降低压缩率。
+
+对于多字节文本，例如含有汉字的内容，使用文本模式通常会损失 10%-20% 的压缩率，具体取决于汉字数量，汉字越多损失越少。
+
+原因是单字节文本的字符以 u8[] 存储，而多字节文本的字符以 u16[] 存储，由于每个字符都占用 2 字节，导致体积膨胀，尽管压缩可去除冗余，但相比二进制模式仍有损失。
+
+之所以直接存储字码，是因为读取时可通过 `String.fromCharCode.apply` 批量解码，相比逐字处理可以快几十倍。
+
+<details>
+<summary>性能测试：批量解码 vs 逐字处理</summary>
+
+```javascript
+const testData = new Uint16Array(1024 * 1024 * 8)
+for (let i = 0; i < testData.length; i++) {
+  testData[i] = i
+}
+const chr = String.fromCharCode
+let strApply = ''
+let strLoop = ''
+
+const t0 = Date.now()
+
+for (let i = 0; i < testData.length; i += 32768) {
+  const part = testData.subarray(i, i + 32768)
+  strApply += chr.apply(0, part)
+}
+const t1 = Date.now()
+
+for (let i = 0; i < testData.length; i++) {
+  strLoop += chr(testData[i])
+}
+const t2 = Date.now()
+
+console.log('apply time:', t1 - t0)
+console.log('loop time:', t2 - t1)
+console.log(strLoop === strApply)
+```
+</details>
+
+https://jsbin.com/mofapad/edit?html,console
 
 ## 兼容性
 
 * 微信小程序 v2.14.0
 
   https://developers.weixin.qq.com/miniprogram/dev/framework/performance/wasm.html
+
+  微信小程序 v2.21.1 支持原生 br 解压
+
+  https://developers.weixin.qq.com/miniprogram/dev/api/file/FileSystemManager.readCompressedFile.html
 
 * 抖音小程序 v2.92.0.0
 
