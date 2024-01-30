@@ -108,7 +108,7 @@ export default function(binFileMap, txtFileMap) {
 
   const align = (n) => {
     if (fileLen % n) {
-      const padding = new Uint8Array(n - fileLen % n)
+      const padding = Buffer.alloc(n - fileLen % n)
       body.push(padding)
       fileLen += padding.length
     }
@@ -154,9 +154,9 @@ export default function(binFileMap, txtFileMap) {
       }
     }
     if (singleByte) {
-      addFile(TYPE_ISO_8859_1, Uint8Array.from(codes))
+      addFile(TYPE_ISO_8859_1, Buffer.from(codes))
     } else {
-      addFile(TPYE_UTF_16, new Uint8Array(codes.buffer))
+      addFile(TPYE_UTF_16, Buffer.from(codes.buffer))
     }
   }
 
@@ -164,7 +164,7 @@ export default function(binFileMap, txtFileMap) {
   align(4)
 
   const pkgBuf = Buffer.concat([
-    new Uint8Array(head.buffer),
+    Buffer.from(head.buffer),
     ...body,
   ], fileLen)
 
