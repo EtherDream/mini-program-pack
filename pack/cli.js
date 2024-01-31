@@ -1,36 +1,32 @@
 import fs from 'node:fs'
 import zlib from 'node:zlib'
-import {resolve, normalize} from 'node:path'
+import {resolve} from 'node:path'
 import {Command} from 'commander'
 import pack from './lib.js'
 
-
-// 目录分隔使用 `/`
-function normalizeSlash(path) {
-  return path.replace(/\\/g, '/')
-}
-
-function normalizePath(path) {
-  return normalizeSlash(normalize(path))
-}
 
 function formatNum(num) {
   return num.toLocaleString()
 }
 
 function main(args) {
-  const binFileNameArr = (args.binary || []).map(normalizePath)
-  const txtFileNameArr = (args.text || []).map(normalizePath)
+  const baseDir = resolve(args.path)
 
-  const binFileNameSet = new Set(binFileNameArr)
-  const txtFileNameSet = new Set(txtFileNameArr)
+  const toAbsolutePath = (path) => {
+    return resolve(baseDir, path)
+  }
+  const binFilePathArr = (args.binary || []).map(toAbsolutePath)
+  const txtFilePathArr = (args.text || []).map(toAbsolutePath)
 
-  for (const fileName of txtFileNameSet) {
-    if (binFileNameSet.delete(fileName)) {
-      console.warn(fileName, '已切换到文本模式')
+  const binFilePathSet = new Set(binFilePathArr)
+  const txtFilePathSet = new Set(txtFilePathArr)
+
+  for (const path of txtFilePathSet) {
+    if (binFilePathSet.delete(path)) {
+      console.warn(path, '已切换到文本模式')
     }
   }
-  const fileNum = binFileNameSet.size + txtFileNameSet.size
+  const fileNum = binFilePathSet.size + txtFilePathSet.size
   if (fileNum === 0) {
     console.error('未指定输入文件')
     return
@@ -43,21 +39,20 @@ function main(args) {
     console.warn('目标文件扩展名不是 .wasm.br')
   }
 
-  const baseDir = resolve(process.cwd(), args.path)
   console.log('根目录:', baseDir)
 
-
-  const addFiles = (fileNameSet, isBin) => {
+  const addFiles = (filePathSet, isBin) => {
     const map = {}
 
-    for (const fileName of fileNameSet) {
-      const absPath = resolve(baseDir, fileName)
+    for (const absPath of filePathSet) {
       if (!absPath.startsWith(baseDir)) {
-        throw Error('文件 ' + fileName + ' 不在根目录下')
+        throw Error('文件 ' + absPath + ' 不在根目录下')
       }
-      const relPath = normalizeSlash(
-        absPath.replace(baseDir, '').substring(1)
-      )
+      const relPath = absPath
+        .replace(baseDir, '') // 去除根目录前缀
+        .substring(1)         // 去除斜杠前缀
+        .replace(/\\/g, '/')  // 目录分隔符统一使用 `/`
+
       const binData = fs.readFileSync(absPath)
       map[relPath] = isBin ? binData : binData.toString()
 
@@ -68,8 +63,8 @@ function main(args) {
     return map
   }
 
-  const binFileMap = addFiles(binFileNameSet, true)
-  const txtFileMap = addFiles(txtFileNameSet, false)
+  const binFileMap = addFiles(binFilePathSet, true)
+  const txtFileMap = addFiles(txtFilePathSet, false)
 
   const wasmBuf = pack(binFileMap, txtFileMap)
 
