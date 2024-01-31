@@ -135,6 +135,8 @@ https://jsbin.com/mofapad/edit?html,console
 
   https://developers.weixin.qq.com/miniprogram/dev/api/file/FileSystemManager.readCompressedFile.html
 
+  由于 Worker 环境访问不到 wx 对象，因此无法原生 br 解压。但能访问 WXWebAssembly 对象（v2.15.0），仍可使用 .wasm.br 方案。
+
 * 抖音小程序 v2.92.0.0
 
   https://developer.open-douyin.com/docs/resource/zh-CN/mini-app/develop/guide/experience-optimization/list/wasm
