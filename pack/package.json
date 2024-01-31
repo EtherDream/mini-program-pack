@@ -1,6 +1,6 @@
 {
   "name": "mini-program-pack",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "小程序静态资源打包工具",
   "bin": {
     "mini-program-pack": "bin/mini-program-pack.js"
