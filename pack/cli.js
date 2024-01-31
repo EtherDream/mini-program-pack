@@ -5,9 +5,13 @@ import {Command} from 'commander'
 import pack from './lib.js'
 
 
+// 目录分隔使用 `/`
+function normalizeSlash(path) {
+  return path.replace(/\\/g, '/')
+}
+
 function normalizePath(path) {
-  // 目录分隔使用 `/`
-  return normalize(path).replace(/\\/g, '/')
+  return normalizeSlash(normalize(path))
 }
 
 function formatNum(num) {
@@ -39,7 +43,7 @@ function main(args) {
     console.warn('目标文件扩展名不是 .wasm.br')
   }
 
-  const baseDir = resolve(process.cwd(), args.path) + '/'
+  const baseDir = resolve(process.cwd(), args.path)
   console.log('根目录:', baseDir)
 
 
@@ -51,8 +55,9 @@ function main(args) {
       if (!absPath.startsWith(baseDir)) {
         throw Error('文件 ' + fileName + ' 不在根目录下')
       }
-      const relPath = absPath.replace(baseDir, '')
-
+      const relPath = normalizeSlash(
+        absPath.replace(baseDir, '').substring(1)
+      )
       const binData = fs.readFileSync(absPath)
       map[relPath] = isBin ? binData : binData.toString()
 
