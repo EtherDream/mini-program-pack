@@ -55,6 +55,8 @@ const brBuf = zlib.brotliCompressSync(wasmBuf)
 
 ## 包文件结构
 
+排除 wasm 头之后的内容：
+
 ```c
 struct {
   // 文件数量
@@ -77,6 +79,9 @@ struct {
 
   // 存储文件名的虚拟文件
   u8 fileNameText[ attrs[fileNum].size ]
+
+  // 整个结构体的长度（原生解压 br 时可直接从尾部读取，无需分析 wasm 文件头）
+  u32 packageLen
 }
 ```
 
