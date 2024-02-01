@@ -8,6 +8,10 @@
   "dependencies": {
     "commander": "^11.1.0"
   },
+  "files": [
+    "*.js",
+    "index.d.ts"
+  ],
   "main": "lib.js",
   "types": "index.d.ts",
   "scripts": {
