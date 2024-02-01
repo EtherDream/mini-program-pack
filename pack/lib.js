@@ -66,21 +66,6 @@ function genWasmHead(dataLen) {
   }
 }
 
-function genWasmFile(data) {
-  // 末尾追加 4 字节用于存储数据长度，方便原生解压 br 的场合读取
-  //（直接从尾部读取长度和数据，无需解析 wasm 头）
-  const dataLen = data.length + 4
-  const wasmHead = genWasmHead(dataLen)
-
-  const wasmFile = Buffer.concat([
-    wasmHead,
-    data,
-    Buffer.from(new Uint32Array([dataLen]).buffer),
-  ])
-  return wasmFile
-}
-
-
 const TYPE_BINARY = 0
 const TYPE_ISO_8859_1 = 1
 const TPYE_UTF_16 = 2
@@ -100,25 +85,24 @@ export default function(binFileMap, txtFileMap) {
   // 文件个数
   head[headPos++] = fileNum
 
-  // 文件数据
-  const body = []
-
-
-  let fileLen = head.byteLength
+  const pkgBufs = [
+    Buffer.from(head.buffer),
+  ]
+  let pkgLen = head.byteLength
 
   const align = (n) => {
-    if (fileLen % n) {
-      const padding = Buffer.alloc(n - fileLen % n)
-      body.push(padding)
-      fileLen += padding.length
+    if (pkgLen % n) {
+      const padding = Buffer.alloc(n - pkgLen % n)
+      pkgBufs.push(padding)
+      pkgLen += padding.length
     }
   }
 
   const addFile = (type, buf) => {
     // 数据起始位置对齐到 8 的整数倍
     align(8)
-    body.push(buf)
-    fileLen += buf.length
+    pkgBufs.push(buf)
+    pkgLen += buf.length
 
     const attr = type << 30 | buf.length
     head[headPos++] = attr
@@ -160,13 +144,17 @@ export default function(binFileMap, txtFileMap) {
     }
   }
 
-  // 数据末尾对齐到 4 的整数倍
+  // 末尾追加 4 字节用于存储数据长度，方便原生解压 br 的场合读取
+  //（直接从尾部读取长度和数据，无需解析 wasm 头）
   align(4)
+  pkgLen += 4
 
-  const pkgBuf = Buffer.concat([
-    Buffer.from(head.buffer),
-    ...body,
-  ], fileLen)
+  const wasmHead = genWasmHead(pkgLen)
 
-  return genWasmFile(pkgBuf)
+  const wasmFile = Buffer.concat([
+    wasmHead,
+    ...pkgBufs,
+    Buffer.from(Uint32Array.of(pkgLen).buffer),
+  ])
+  return wasmFile
 }
