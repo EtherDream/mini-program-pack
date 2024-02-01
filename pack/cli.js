@@ -3,6 +3,7 @@ import zlib from 'node:zlib'
 import {resolve} from 'node:path'
 import {Command} from 'commander'
 import pack from './lib.js'
+import ver from './ver.js'
 
 
 function formatNum(num) {
@@ -98,4 +99,5 @@ new Command()
       console.error(err.message)
     }
   })
+  .version(ver)
   .parse(process.argv)

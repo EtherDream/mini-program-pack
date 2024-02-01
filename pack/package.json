@@ -11,7 +11,8 @@
   "main": "lib.js",
   "types": "index.d.ts",
   "scripts": {
-    "test": "node test/test.js"
+    "test": "node test/test.js",
+    "prepack": "echo \"export default '$npm_package_version'\" > ver.js"
   },
   "type": "module",
   "homepage": "https://github.com/EtherDream/mini-program-pack/pack",
