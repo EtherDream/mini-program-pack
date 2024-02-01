@@ -36,7 +36,7 @@ function main(args) {
     console.error('未指定输出文件')
     return
   }
-  if (!/.wasm.br$/.test(args.output)) {
+  if (!args.output.endsWith('.wasm.br')) {
     console.warn('目标文件扩展名不是 .wasm.br')
   }
 
